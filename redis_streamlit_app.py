@@ -37,6 +37,9 @@ import pandas as pd
 import redis
 import streamlit as st # Make sure this is one of the first imports
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # ---------------------------------------------------------------------------
 # Streamlit UI - Page Config MUST BE FIRST Streamlit command
 # ---------------------------------------------------------------------------
@@ -49,7 +52,7 @@ st.set_page_config(page_title="Redis Assessment Demo", layout="wide")
 def get_redis_connection() -> redis.Redis:
     """Attempts to connect to Redis and returns the connection object.
     Raises redis.exceptions.ConnectionError or other exceptions on failure."""
-    url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    url = os.getenv("REDIS_URL") #redis://localhost:6379/0
     r = redis.from_url(url, decode_responses=True)
     r.ping() # This will raise an exception if connection fails
     return r
@@ -206,8 +209,8 @@ with tab_numbers:
     if numbers_from_zset:
         st.code(numbers_from_zset[:], language="python")
         
-        st.subheader("Sparkline of top 50 numbers (values as inserted)")
-        df_numbers = pd.DataFrame({"value": numbers_from_zset[:50][::-1]}) # Reversed for ascending line chart
+        st.subheader("Sparkline of the numbers (values as inserted)")
+        df_numbers = pd.DataFrame({"value": numbers_from_zset[:][::-1]}) # Reversed for ascending line chart
         st.line_chart(df_numbers.set_index(pd.RangeIndex(start=1, stop=len(df_numbers) + 1)))
     else:
         st.info(f"The ZSET '{NUM_KEY}' is empty.")
@@ -334,30 +337,29 @@ with tab_cart:
         st.rerun()
 
 
-# In your Streamlit app, e.g., in a new tab or section:
-st.subheader("Recent Orders (from Stream)")
-try:
-    # Fetch, for example, the last 10 orders.
-    # XREVRANGE returns a list of [message_id, [field1, value1, field2, value2, ...]]
-    # Stream messages are lists of [message_id, fields_dict]
-    # However, redis-py's xrevrange/xrange can return it parsed differently
-    # depending on version or if it's a pipeline.
-    # Let's assume it returns a list of tuples: (message_id, fields_dictionary)
-    
-    # The redis-py `xrevrange` and `xrange` methods return a list of tuples,
-    # where each tuple is (message_id, fields_dict).
-    recent_orders_raw = rdb.xrevrange(ORDER_STREAM, count=10) # Get last 10
-
-    if recent_orders_raw:
-        orders_for_display = []
-        for message_id, fields_dict in recent_orders_raw:
-            order_data = {"Order ID (Stream Msg ID)": message_id}
-            order_data.update(fields_dict) # Add all fields from the stream message
-            orders_for_display.append(order_data)
+    st.subheader("Recent Orders (from Stream)")
+    try:
+        # Fetch, for example, the last 10 orders.
+        # XREVRANGE returns a list of [message_id, [field1, value1, field2, value2, ...]]
+        # Stream messages are lists of [message_id, fields_dict]
+        # However, redis-py's xrevrange/xrange can return it parsed differently
+        # depending on version or if it's a pipeline.
+        # Let's assume it returns a list of tuples: (message_id, fields_dictionary)
         
-        df_orders = pd.DataFrame(orders_for_display)
-        st.dataframe(df_orders)
-    else:
-        st.info("No orders found in the stream yet.")
-except Exception as e:
-    st.error(f"Error fetching orders from stream: {e}")
+        # The redis-py `xrevrange` and `xrange` methods return a list of tuples,
+        # where each tuple is (message_id, fields_dict).
+        recent_orders_raw = rdb.xrevrange(ORDER_STREAM, count=10) # Get last 10
+
+        if recent_orders_raw:
+            orders_for_display = []
+            for message_id, fields_dict in recent_orders_raw:
+                order_data = {"Order ID (Stream Msg ID)": message_id}
+                order_data.update(fields_dict) # Add all fields from the stream message
+                orders_for_display.append(order_data)
+            
+            df_orders = pd.DataFrame(orders_for_display)
+            st.dataframe(df_orders)
+        else:
+            st.info("No orders found in the stream yet.")
+    except Exception as e:
+        st.error(f"Error fetching orders from stream: {e}")
