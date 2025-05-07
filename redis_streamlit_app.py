@@ -37,8 +37,8 @@ import pandas as pd
 import redis
 import streamlit as st # Make sure this is one of the first imports
 
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Streamlit UI - Page Config MUST BE FIRST Streamlit command
